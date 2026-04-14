@@ -1,0 +1,125 @@
+% consider learning curve at only successful trials
+% add the part to calculate the success rate around each successful trial
+% as well
+% I prefer to calculate the LC or successRate by placing the trial in the
+% center, such as i-10:i+10. But lab exisiting code use trials after
+% current idx. I will follow what lab does
+% Li YUAN, 2026-Mar
+function [LC,successRate] = learningCurveCalc(trialInfo,LC_window_all,LC_window_each)
+
+successNum = sum(trialInfo.success == 1);
+successIdx = find(trialInfo.success == 1);
+successOdor = trialInfo.odor(trialInfo.success == 1);
+successOutcome = trialInfo.outcome(trialInfo.success == 1);
+if any(isnan(successOutcome))
+    error('Trial outcome error')
+end
+
+%% calculate based on all odors
+if successNum > LC_window_all
+    LC.ABCD = nan(6,successNum-LC_window_all+1);
+    successRate.all = nan(1,successNum-LC_window_all+1);
+    for i = 1:(successNum-LC_window_all)
+
+        Go_1 = sum(successOdor(i:i+LC_window_all-1) == 1); % # of odor A presentations in this 20 trials
+        NoGo_1 = sum(successOdor(i:i+LC_window_all-1) == 2); % # of odor B... etc...
+        Go_2 = sum(successOdor(i:i+LC_window_all-1) == 3);
+        NoGo_2 = sum(successOdor(i:i+LC_window_all-1) == 4);
+
+        Hit_1 = sum((successOdor(i:i+LC_window_all-1) == 1) & (successOutcome(i:i+LC_window_all-1) == 1));
+        CR_1  = sum((successOdor(i:i+LC_window_all-1) == 2) & (successOutcome(i:i+LC_window_all-1) == 4));
+        Hit_2 = sum((successOdor(i:i+LC_window_all-1) == 3) & (successOutcome(i:i+LC_window_all-1) == 1));
+        CR_2  = sum((successOdor(i:i+LC_window_all-1) == 4) & (successOutcome(i:i+LC_window_all-1) == 4));
+
+        %LC stands for Learning Curve
+        LC.ABCD(1,i)=((Hit_1 + CR_1)/(Go_1 + NoGo_1)) * 100; % Correct rate AB
+        LC.ABCD(2,i)= Hit_1/Go_1 * 100; % Hit rate for A
+        LC.ABCD(3,i)= CR_1/NoGo_1 * 100; % CR rate for B
+        LC.ABCD(4,i)=((Hit_2 + CR_2)/(Go_2 + NoGo_2)) * 100; % Correct rate CD
+        LC.ABCD(5,i)= Hit_2/Go_2 * 100; % Hit rate for C
+        LC.ABCD(6,i)= CR_2/NoGo_2 * 100; % CR rate for D
+
+
+        successEnd = min([successIdx(i)+LC_window_all,trialInfo.num]);
+        successLabel = trialInfo.success(successIdx(i):successEnd);
+        successRate.all(i) = sum(successLabel)/length(successLabel)*100;
+    end
+
+    % fill last 20 trials with the same data
+    lastWindow = (successNum - LC_window_all + 1);
+    %disp
+    Go_1 = sum(successOdor(lastWindow:successNum) == 1); % # of odor A presentations in this 20 trials
+    NoGo_1 = sum(successOdor(lastWindow:successNum) == 2); % # of odor B... etc...
+    Go_2 = sum(successOdor(lastWindow:successNum) == 3);
+    NoGo_2 = sum(successOdor(lastWindow:successNum) == 4);
+
+    Hit_1 = sum((successOdor(lastWindow:successNum) == 1) & (successOutcome(lastWindow:successNum) == 1));
+    CR_1  = sum((successOdor(lastWindow:successNum) == 2) & (successOutcome(lastWindow:successNum) == 4));
+    Hit_2 = sum((successOdor(lastWindow:successNum) == 3) & (successOutcome(lastWindow:successNum) == 1));
+    CR_2  = sum((successOdor(lastWindow:successNum) == 4) & (successOutcome(lastWindow:successNum) == 4));
+
+    %LC stands for Learning Curve
+    LC.ABCD(1,lastWindow:successNum)=((Hit_1 + CR_1)/(Go_1 + NoGo_1)) * 100; % Correct rate AB
+    LC.ABCD(2,lastWindow:successNum)= Hit_1/Go_1 * 100; % Hit rate for A
+    LC.ABCD(3,lastWindow:successNum)= CR_1/NoGo_1 * 100; % CR rate for B
+    LC.ABCD(4,lastWindow:successNum)=((Hit_2 + CR_2)/(Go_2 + NoGo_2)) * 100; % Correct rate CD
+    LC.ABCD(5,lastWindow:successNum)= Hit_2/Go_2 * 100; % Hit rate for C
+    LC.ABCD(6,lastWindow:successNum)= CR_2/NoGo_2 * 100; % CR rate for D
+    
+    successEnd = min([successIdx(successNum - LC_window_all + 1)+LC_window_all,trialInfo.num]);
+    successLabel = trialInfo.success(successIdx(i):successEnd);
+    successRate.all(successNum - LC_window_all + 1) = sum(successLabel)/length(successLabel)*100;
+
+else
+    fprintf('Less than %d successful trials, no LC calculation\n',LC_window_all);
+    LC.ABCD = nan(6,successNum);
+    successRate.all = nan(1,successNum);
+end
+
+%% calculate based on each odors
+success_A_outcome = successOutcome(successOdor == 1);
+success_B_outcome = successOutcome(successOdor == 2);
+success_C_outcome = successOutcome(successOdor == 3);
+success_D_outcome = successOutcome(successOdor == 4);
+
+if length(success_A_outcome) >= LC_window_each
+    LC.A = smooth_movWin(success_A_outcome, LC_window_each);
+else
+    LC.A = nan;
+end
+
+if length(success_B_outcome) >= LC_window_each
+    LC.B = smooth_movWin(success_B_outcome, LC_window_each);
+else
+    LC.B = nan;
+end
+
+if length(success_C_outcome) >= LC_window_each
+    LC.C = smooth_movWin(success_C_outcome, LC_window_each);
+else
+    LC.C = nan;
+end
+
+if length(success_D_outcome) >= LC_window_each
+    LC.D = smooth_movWin(success_D_outcome, LC_window_each);
+else
+    LC.D = nan;
+end
+
+%% calculate AB and CD
+success_AB_outcome = [success_A_outcome(:);success_B_outcome(:)];
+success_CD_outcome = [success_C_outcome(:);success_D_outcome(:)];
+
+if length(success_AB_outcome) >= LC_window_each
+    LC.AB = smooth_movWin(success_AB_outcome, LC_window_each);
+else
+    LC.AB = nan;
+end
+
+if length(success_CD_outcome) >= LC_window_each
+    LC.CD = smooth_movWin(success_CD_outcome, LC_window_each);
+else
+    LC.CD = nan;
+end
+
+end

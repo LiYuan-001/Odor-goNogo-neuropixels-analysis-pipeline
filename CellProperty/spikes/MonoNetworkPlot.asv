@@ -1,0 +1,21 @@
+function MonoNetworkPlot(sig_con,cellID,cellLabel)
+
+weight = zeros(length(cellID),length(cellID));
+allcel = unique(sig_con(:));
+cellLabel2 = zeros(length(allcel),1);
+for i = 1:size(sig_con,1)
+    weight(sig_con(:,i)) = 1;
+    weight(fliplr(sig_con(:,i))) = 1;
+end
+counts = sum(weight~=0);
+G = graph(weight);
+LWidths = 2*G.Edges.Weight/max(G.Edges.Weight);
+h = plot(G,'NodeLabel',[1:seqNum],'LineWidth',LWidths);
+for nn = 1:length(allcel)
+    if cellLabel(allcel(nn)) == 1
+        highlight(h,nn, 'MarkerSize', counts(nn),'NodeColor','r','Marker','^')
+    elseif cellLabel(allcel(nn)) == 2
+        highlight(h,nn, 'MarkerSize', counts(nn),'NodeColor','k','Marker','o')
+    end
+end
+end
