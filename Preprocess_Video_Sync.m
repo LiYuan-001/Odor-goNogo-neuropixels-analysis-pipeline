@@ -20,30 +20,57 @@ for sessInd = analyzeSes(1:end)
     p.videoFs = sessInfo(sessInd).video_rate;
 
     if p.saveFile
-        savedir = sprintf('%s%s%s%s%s',p.saveDir,'\ProcessedData\',sessInfo(sessInd).animalID,'-date-',sessInfo(sessInd).recDate); 
+        savedir = sessInfo(sessInd).npx_path;
+        % savedir = sprintf('%s%s%s%s%s',p.saveDir,'\ProcessedData\',sessInfo(sessInd).animalID,'-date-',sessInfo(sessInd).recDate); 
         % if ~exist(savedir, 'dir')
         %     mkdir(savedir);
         % end
     end
-    p.cam_frame_ch = sessInfo(sessInd).cam_frame_ch + 1; % matlab count from 1
+    p.cam_frame_ch = sessInfo(sessInd).cam_frame_ch;
 
-    load(fullfile(savedir,'syncTime.mat'));
-    IO_type = Npx_timeStamps.IO.Type;
+    % load(fullfile(savedir,'syncTime.mat'));
+    % IO_type = Npx_timeStamps.IO.Type;
+    % 
+    % % Check if either file exists
+    % if strcmpi(IO_type,'nidq')
+    %     IOFile = dir(fullfile(sessInfo(sessInd).npx_path,'*.nidq.bin'));
+    %     metaFile = dir(fullfile(sessInfo(sessInd).npx_path,'*.nidq.meta'));
+    % elseif strcmpi(IO_type,'obx')
+    %     IOFile = dir(fullfile(sessInfo(sessInd).npx_path,'*.obx.bin'));
+    %     metaFile = dir(fullfile(sessInfo(sessInd).npx_path,'*.obx.meta'));        
+    % else
+    %     fprintf('Error,No NIDQ.meta or obx.meta found in %s\n', folderPath);
+    %     return
+    % end
+    % 
+    % IOFileName = IOFile.name;
+    % metaFileName = metaFile.name;
 
+    % detect if the recording is using onebox or NIDQ
+    NIDQMeta = dir(fullfile(sessInfo(sessInd).npx_path, '*NIDQ.meta'));
+    obxMeta  = dir(fullfile(sessInfo(sessInd).npx_path, '*obx.meta'));
     % Check if either file exists
-    if strcmpi(IO_type,'nidq')
+    if ~isempty(NIDQMeta)
+        fprintf('Found IO.meta file: %s\n', NIDQMeta(1).name);
         IOFile = dir(fullfile(sessInfo(sessInd).npx_path,'*.nidq.bin'));
         metaFile = dir(fullfile(sessInfo(sessInd).npx_path,'*.nidq.meta'));
-    elseif strcmpi(IO_type,'obx')
+        IOFileName = IOFile.name;
+        metaFileName = metaFile.name;
+        IO_type = 'nidq';
+    elseif ~isempty(obxMeta)
+        fprintf('Found obx.meta file: %s\n', obxMeta(1).name);
         IOFile = dir(fullfile(sessInfo(sessInd).npx_path,'*.obx.bin'));
-        metaFile = dir(fullfile(sessInfo(sessInd).npx_path,'*.obx.meta'));        
+        metaFile = dir(fullfile(sessInfo(sessInd).npx_path,'*.obx.meta'));
+        IOFileName = IOFile.name;
+        metaFileName = metaFile.name;
+        IO_type = 'obx';
     else
-        fprintf('Error,No NIDQ.meta or obx.meta found in %s\n', folderPath);
+        IO_type = [];
+        fprintf('Error,No IO.meta or obx.meta found in %s\n', folderPath);
         return
     end
 
-    IOFileName = IOFile.name;
-    metaFileName = metaFile.name;
+
 
     % Parse the corresponding metafile
     meta_IO = ReadMeta(fullfile(sessInfo(sessInd).npx_path,metaFileName));
@@ -91,6 +118,7 @@ for sessInd = analyzeSes(1:end)
     camTTL = camTTL(:);
     camTTL_diff = [0;diff(camTTL)];
     droppingInd = camTTL_diff==-1;
+    framidx = find(droppingInd);
     camTTL_frameCount = sum(droppingInd);
 
     %% read video
@@ -115,63 +143,77 @@ for sessInd = analyzeSes(1:end)
     % compare numbers of frames
     if camTTL_frameCount == nFile
         fprintf('Frames match TTL\n')
-        videoTime.ts = Npx_timeStamps.IO.Ts_Sync(droppingInd);
+        videoTime.idx = framidx;
+        % videoTime.ts = Npx_timeStamps.IO.Ts_Sync(framidx);
+    % elseif camTTL_frameCount == nFile+1 % this comes from last frame is triggered but not saved
+    %     fprintf('Frames match TTL\n')
+    %     videoTime.ind = framidx(1:end-1);
+    %     videoTime.ts = Npx_timeStamps.IO.Ts_Sync(framidx(1:end-1));
     else
-        fprintf('Frames doesnt match TTL/n')
+
+        fprintf('Frames doesnt match TTL\n')
         break
     end
 
-    % % Read timestamps from image headers
-    % for k = 1:nFile
-    %     fname = fullfile(files(k).folder, files(k).name);
-    %     info = imfinfo(fname);
-    % 
-    %     % Try common timestamp fields
-    %     if isfield(info, 'DateTime') && ~isempty(info.DateTime)
-    %         imgTime(k) = datetime(info.DateTime, 'InputFormat', 'yyyy:MM:dd HH:mm:ss');
-    %     elseif isfield(info, 'ImageDescription') && ~isempty(info.ImageDescription)
-    %         % Example: parse a timestamp embedded in ImageDescription
-    %         txt = string(info.ImageDescription);
-    % 
-    %         % Edit this regexp to match your actual timestamp format
-    %         token = regexp(txt, '\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(\.\d+)?', 'match', 'once');
-    %         if ~isempty(token)
-    %             imgTime(k) = datetime(token, 'InputFormat', 'yyyy-MM-dd HH:mm:ss.SSS');
-    %         else
-    %             error('No recognizable timestamp in ImageDescription for %s', files(k).name);
-    %         end
-    %     else
-    %         error('No supported timestamp field found in %s', files(k).name);
-    %     end
-    % end
-    % 
-    % % Convert to seconds relative to first frame
-    % tSec = seconds(imgTime - imgTime(1));
-    % % Target uniform video times
-    % tVideo = (0 : 1/p.videoFs : (length(tSec)-1)/p.videoFs)';
-    % videoTime.tVideo = tVideo;
 
-    imgIdx = 1:nFile;
     % Output file
-    outFile = fullfile(sessInfo(sessInd).npx_path, 'output_video.mp4');
-    v = VideoWriter(outFile, 'MPEG-4');
+    outFile = fullfile(sessInfo(sessInd).npx_path, 'output_video.avi');
+    % delete existing file, otherwise concatenate
+    if exist(outFile,'file')
+        delete(outFile)
+        fprintf('Deleted exisiting video file.\n')
+    end
+    
+    v = VideoWriter(outFile, 'Motion JPEG AVI');
     v.FrameRate = p.videoFs;
     open(v);
 
-    for k = 1:numel(imgIdx)
-        img = imread(fullfile(files(imgIdx(k)).folder, files(imgIdx(k)).name));
+    nextProgress = 10;
 
-        % Convert grayscale to RGB for safer video writing
-        if ndims(img) == 2
-            img = repmat(img, 1, 1, 3);
+    % Read timestamps from image headers
+    for k = 1:nFile
+        fname = fullfile(files(k).folder, files(k).name);
+        info = imfinfo(fname);
+
+        % Try common timestamp fields
+        if isfield(info, 'DateTime') && ~isempty(info.DateTime)
+            imgTime(k) = datetime(info.DateTime, 'InputFormat', 'yyyy:MM:dd HH:mm:ss');
+        elseif isfield(info, 'ImageDescription') && ~isempty(info.ImageDescription)
+            % Example: parse a timestamp embedded in ImageDescription
+            txt = string(info.ImageDescription);
+
+            % Edit this regexp to match your actual timestamp format
+            token = regexp(txt, '\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(\.\d+)?', 'match', 'once');
+            if ~isempty(token)
+                imgTime(k) = datetime(token, 'InputFormat', 'yyyy-MM-dd HH:mm:ss.SSS');
+            else
+                error('No recognizable timestamp in ImageDescription for %s', files(k).name);
+            end
+        else
+            error('No supported timestamp field found in %s', files(k).name);
         end
 
+        % read image and write video
+        img = imread(fname);
         writeVideo(v, img);
+        % Show progress every 10%
+        progress = floor(k / nFile * 100);
+
+        if progress >= nextProgress
+            fprintf('Progress: %d%%\n', nextProgress);
+            nextProgress = nextProgress + 10;
+        end
     end
 
+    fprintf('Progress: 100%% Done.\n');
     close(v);
     fprintf('Saved video to: %s\n', outFile);
 
+    % Convert to seconds relative to first frame
+    tSec = seconds(imgTime - imgTime(1));
+    % Target uniform video times
+    % tVideo = (0 : 1/p.videoFs : (length(tSec)-1)/p.videoFs)';
+    videoTime.tVideo_Origin = tSec;
 
     if p.saveFile
         save(fullfile(savedir,'videoTime.mat'), 'videoTime','-v7.3');

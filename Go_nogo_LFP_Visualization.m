@@ -167,9 +167,9 @@ for sessInd = analyzeSes(1:end)
         end
     end
 
-    if p.saveFile
-        save(fullfile(savedir,'behaviorLabel.mat'), 'goNogo_LFP_Matrix','-v7.3');
-    end
+    % if p.saveFile
+    %     save(fullfile(savedir,'goNogo_LFP_Matrix.mat'), 'goNogo_LFP_Matrix','-v7.3');
+    % end
     fprintf('Finish behavioral analysis: %d\n', sessInd);
     clear goNogo_LFP_Matrix
 

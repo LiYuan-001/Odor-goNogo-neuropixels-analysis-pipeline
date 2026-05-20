@@ -52,25 +52,28 @@ for sessInd = analyzeSes(1:end)
     % Parse the corresponding metafile
     meta_IO = ReadMeta(fullfile(sessInfo(sessInd).npx_path,metaFileName));
     IO_Fs = SampRate(meta_IO);
-    % Get first one channel of LFP
-    dataArray = ReadBin(fullfile(sessInfo(sessInd).npx_path,IOFileName),meta_IO);
+    % % read in data 
+    % dataArray = ReadBin(fullfile(sessInfo(sessInd).npx_path,IOFileName),meta_IO);
+    % 
+    % if contains(IO_type,'nidq')
+    %     % (1-based). For imec data there is never more than one saved digital word.
+    %     dw = 1;
+    %     % Read these lines in dw (0-based).
+    %     dLineList = [0:7]; % The 2090A NIDQ
+    %     digArray = ExtractDigital(dataArray, meta_IO, dw, dLineList);
+    %     digArray2 = double(digArray);
+    %     clear digArray
+    %     IO_sync_1 = digArray2(sessInfo(sessInd).IO_synCh,:); % onebox specific
+    %     clear digArray2
+    % 
+    % elseif contains(IO_type,'obx')
+    %     IO_sync_1 = dataArray(sessInfo(sessInd).IO_synCh,:); % onebox specific
+    % else
+    %     error('No IO signal for sync')
+    % end
+    % clear dataArray
 
-    if contains(IO_type,'nidq')
-        % (1-based). For imec data there is never more than one saved digital word.
-        dw = 1;
-        % Read these lines in dw (0-based).
-        dLineList = [0:7]; % The 2090A NIDQ
-        digArray = ExtractDigital(dataArray, meta_IO, dw, dLineList);
-        digArray2 = double(digArray);
-        clear digArray
-        IO_sync_1 = digArray2(sessInfo(sessInd).IO_synCh,:); % onebox specific
-        clear digArray2
-
-    elseif contains(IO_type,'obx')
-        IO_sync_1 = dataArray(14,:); % onebox specific
-    else
-        error('No IO signal for sync')
-    end
+    IO_sync_1 = ReadBinChannel(fullfile(sessInfo(sessInd).npx_path,IOFileName),meta_IO,sessInfo(sessInd).IO_synCh);
 
     % Calculate and assign time
     IO_Ts = (1:length(IO_sync_1))./IO_Fs;
@@ -214,6 +217,7 @@ for sessInd = analyzeSes(1:end)
 
     if p.saveFile
         save(fullfile(savedir,'syncTime.mat'), 'sessionName','Npx_timeStamps','-v7.3');
+        save(fullfile(sessInfo(sessInd).npx_path,'syncTime.mat'), 'sessionName','Npx_timeStamps','-v7.3');
     end
 
     figName = sprintf('%s%s%s%s%s',savedir,'\Sync_illustration_',sessInfo(sessInd).animalID,'-Day-',sessInfo(sessInd).recDate);

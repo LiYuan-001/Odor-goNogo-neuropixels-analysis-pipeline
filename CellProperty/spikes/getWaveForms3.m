@@ -31,12 +31,20 @@ function wf = getWaveForms3(mmf,spkInd,ch,p)
 % wf = getWaveForms(gwfparams);
 
 wfNSamples = length(p.gwfparams.wfWin(1):p.gwfparams.wfWin(end));
+
+if length(spkInd) > p.gwfparams.nWf
+    spkInd = spkInd(1:end-2); % avoid spk ind to close to file end
+end
+
 maxNum = min(p.gwfparams.nWf,length(spkInd));
 % spikeTimeKeeps = nan(1,maxNum);
 waveForms = nan(maxNum,wfNSamples);
 % waveFormsMean = nan(1,wfNSamples);
 
 % decide to take out random spike index out
+% remove the last spike bacause sometime exit the data length when consider
+% whole waveform
+
 curUnitnSpikes = size(spkInd,1);
 spikeTimesRP = spkInd(randperm(curUnitnSpikes));
 spikeTimeKeeps = sort(spikeTimesRP(1:maxNum));

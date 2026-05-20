@@ -1,22 +1,21 @@
 % this code analyze the go-nogo task with cue
 % LiYUAN, 2026-Mar
-function trial = taskPerformance_onebox(data,Fs,setting,pairId)
-% premature trial = 0, successful trial = 1;
+function trial = taskPerformance_onebox(data,Fs,setting,pairId,p)
+% premature trial = 0, matureful trial = 1;
 % odor 1A, 2B, 3C, 4D and so on % Or odd number is go, even number is nogo
-% trial success or not, result in gngGetTS_check_error_AB_ABCD_labView: 0 fail, 1 success
-% in successful trials, evnt.action in gngGetTS_check_error_AB_ABCD_labView: (1: Hit, 2: Miss, 3: FalseAlarm, 4: CorrectRejection)
+% trial mature or not, result in gngGetTS_check_error_AB_ABCD_labView: 0 fail, 1 mature
+% in matureful trials, evnt.action in gngGetTS_check_error_AB_ABCD_labView: (1: Hit, 2: Miss, 3: FalseAlarm, 4: CorrectRejection)
 % 1 & 2 for A,C, 3 & 4 for B,D
 % correct, 1&4, error, 2&3
-PLOT = 1;
 % voltage threshold for each line to be considered on
-odorThres = 2;
-LEDThres = 1;
-lickThres = 1.5;
-rewardThres = 2;
+odorThres = p.odorThres;
+LEDThres = p.LEDThres;
+lickThres = p.lickThres;
+rewardThres = p.rewardThres;
 allodors = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R']; % make sure go is always odd and nogo is always even
 
 odorLenMax = 5; % unit sec
-delayAddup = 2; % unit sec, in case lab view give a bit more time
+delayAddup = 0.05; % unit sec, in case lab view give a bit more time
 
 if contains(pairId,'pair1')
     odorName = setting.pair1;
@@ -30,54 +29,6 @@ odorNum = length(odorName);
 
 % get signal and digitize
 
-if PLOT == 1
-    h = figure;
-    h.Position = [100,100,900,900];
-    f(1) = subplot(4,1,1);
-    ts = (1:size(data,2))/Fs;
-    plot(ts,data(setting.odorA_ch,:))
-    hold on
-    plot(ts,data(setting.odorB_ch,:))
-    plot(ts,data(setting.odorC_ch,:))
-    plot(ts,data(setting.odorD_ch,:))
-    % plot(ts,data(setting.odorE_ch,:))
-    % plot(ts,data(setting.odorF_ch,:))
-    plot([0,ts(end)],[odorThres,odorThres],'k')
-    text(0,odorThres+0.5,'Thres')
-    legend({'A','B','C','D'})
-    ylabel('Odor Amp (V)')
-
-    f(2) = subplot(4,1,2);
-    plot(ts,data(setting.led_ch,:))
-    hold on
-    plot([0,ts(end)],[LEDThres,LEDThres],'k')
-    text(0,LEDThres+0.5,'Thres')
-    ylabel('LED Amp (V)')
-    ylim([0 4])
-
-    f(3) = subplot(4,1,3);
-    plot(ts,data(setting.lick_ch,:))
-    hold on
-    plot([0,ts(end)],[lickThres,lickThres],'k')
-    text(0,lickThres+0.5,'Thres')
-    ylabel('Lick Amp (V)')
-    title('Lick signal not used in deciding correct or not')
-    ylim([0 5])
-
-    f(4) = subplot(4,1,4);
-    plot(ts,data(setting.sucrose_ch,:))
-    hold on
-    plot(ts,data(setting.quinine_ch,:))
-    plot([0,ts(end)],[rewardThres,rewardThres],'k')
-    text(0,rewardThres+0.5,'Thres')
-    legend({'S','Q'})
-    ylabel('Reward Amp (V)')
-    xlabel('Time (s)')
-
-    linkaxes(f,'x')
-
-end
-
 odor_sig.A = data(setting.odorA_ch,:) > odorThres;
 odor_sig.B = data(setting.odorB_ch,:) > odorThres;
 odor_sig.C = data(setting.odorC_ch,:) > odorThres; % same channel used for C,E,G ETC
@@ -90,7 +41,7 @@ led_sig = data(setting.led_ch,:) > LEDThres;
 lick_sig = data(setting.lick_ch,:) > lickThres;
 delay_length = setting.delay_len;
 response_length = setting.response_len;
-
+clear data
 
 % get total trial Num
 
@@ -144,12 +95,12 @@ trial.odor = odorTemp(idx);
 % end
 
 trial.offsetInd = nan(trial.num,1);
-trial.success = nan(trial.num,1);
+trial.mature = nan(trial.num,1);
 trial.outcome = nan(trial.num,1);
 
 % get the outcome of each trial
 for j = 1:trial.num-1
-    % whether a trial is successful
+    % whether a trial is matureful
     % check whether there is LED after lick onset
     % or to check whether there is licking during delay
 
@@ -161,10 +112,11 @@ for j = 1:trial.num-1
     end
 
     sigWindow = trial.offsetInd(j) : (trial.offsetInd(j) + ceil(Fs*(delay_length + response_length + delayAddup)));
+
     if sum(led_sig(sigWindow)) == 0  % LED not on, failed
-        trial.success(j) = 0;
+        trial.mature(j) = 0;
     else
-        trial.success(j) = 1;
+        trial.mature(j) = 1;
         % decide the outcome
         if rem(trial.odor(j),2) == 1  % go trials, odd number in labeling
             if sum(sucrose_sig(sigWindow)) > 0
@@ -195,14 +147,15 @@ if trial.offsetInd(j) - trial.onsetInd(j) > odorLenMax*Fs % assume no odor lasts
     error('Odor duration error')
 end
 
-maxLen = size(data,2);
+maxLen = size(sucrose_sig,1);
 trialLim = trial.offsetInd(j) + ceil(Fs*(delay_length + response_length + 0.2));
 if maxLen >= trialLim
     sigWindow = trial.offsetInd(j) : (trial.offsetInd(j) + ceil(Fs*(delay_length + response_length + 0.2)));
+
     if sum(led_sig(sigWindow)) == 0  % LED not on, failed
-        trial.success(j) = 0;
+        trial.mature(j) = 0;
     else
-        trial.success(j) = 1;
+        trial.mature(j) = 1;
         % decide the outcome
         if trial.odor(j) == 1 || trial.odor(j) == 3  % go trials
             if sum(sucrose_sig(sigWindow)) > 0
@@ -226,6 +179,6 @@ else
     trial.onsetInd = trial.onsetInd(1:trial.num);
     trial.offsetInd = trial.offsetInd(1:trial.num);
     trial.odor = trial.odor(1:trial.num);
-    trial.success = trial.success(1:trial.num);
+    trial.mature = trial.mature(1:trial.num);
     trial.outcome = trial.outcome(1:trial.num);
 end

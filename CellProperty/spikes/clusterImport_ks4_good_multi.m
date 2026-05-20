@@ -89,7 +89,7 @@ for k = 1:length(allInd)
         sprintf('Repeated spikes removed')
     end
     cluster{k}.spkInd = spk_tsInd(index);
-    cluster{k}.spkInd = cluster{k}.spkInd(cluster{k}.spkInd<=length(TimeStamps));
+    cluster{k}.spkInd = cluster{k}.spkInd(cluster{k}.spkInd<=(length(TimeStamps)-p.gwfparams.wfWin(end)));
     cluster{k}.spkTs = TimeStamps(cluster{k}.spkInd);
     if size(cluster{k}.spkTs,2) > size(cluster{k}.spkTs,1)
         cluster{k}.spkTs = cluster{k}.spkTs';
@@ -214,7 +214,7 @@ for k = 1:length(allInd)
     
     if p.savePlot == 1
         figure(1)
-        figName = sprintf('%s%s%s%s%s%s%d%s%d%s%d',p.savedir_plot,'\Rat-',p.sessInfo.animalID,'-Date-',p.sessInfo.recDate,'-ycoord-',cluster{k}.channel.channel_depth,'-xCoord-',cluster{k}.channel.xcoords,'-KsID-',cluster{k}.ID);
+        figName = sprintf('%s%s%s%s%s%s%d%s%d%s%d',p.savedir_plot,'\',p.sessInfo.animalID,'-Date-',p.sessInfo.recDate,'-ycoord-',cluster{k}.channel.channel_depth,'-xCoord-',cluster{k}.channel.xcoords,'-KsID-',cluster{k}.ID);
         print(figName,'-dpng','-r300');
     end
     close all    

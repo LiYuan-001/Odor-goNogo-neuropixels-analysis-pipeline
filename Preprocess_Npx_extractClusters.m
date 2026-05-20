@@ -1,5 +1,5 @@
 % This code is to extract good cluster timestamp, waveform and basic info
-% after phy manual curation (only manual labled good in phy)
+% after phy manual curation (only manual labled good and multi in phy)
 % Main goal is to assign spike to synchronized time
 % After this step, anything related to good cluster should be reading ts
 % file generated from this code
@@ -18,7 +18,7 @@ p.ISIthreshold = 2/10^3; % unit:sec
 p.gwfparams.dataType = 'int16';            % Data type of .dat file (this should be BP filtered)
 p.gwfparams.wfWin = [-40 41];              % Number of samples before and after spiketime to include in waveform
 p.gwfparams.nWf = 1000;                    % Number of maximum waveforms per unit to pull out
-p.gwfparams.nWf_plot = 500;               % Number of maximum waveforms to plot
+p.gwfparams.nWf_plot = 500;                % Number of maximum waveforms to plot
 p.gwfparams.nCh = 385;
             
 % Read in input information
@@ -86,6 +86,7 @@ for sessInd = AnalyzeSes(1:end)
             clusterInfo{k}.avgRate = length(clusterInfo{k}.spkInd)./rec_Length;
         end
         
+        npx_Cluster.gwfparams = p.gwfparams;
         npx_Cluster.clusterNum = clusterNum;
         npx_Cluster.clusterInfo = clusterInfo;
         
